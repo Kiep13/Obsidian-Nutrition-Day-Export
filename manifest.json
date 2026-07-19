@@ -1,0 +1,9 @@
+{
+  "id": "nutrition-day-export",
+  "name": "Nutrition Day Export",
+  "version": "0.1.0",
+  "minAppVersion": "1.0.0",
+  "description": "Export #food entries from the Nutrition section of an Obsidian daily note without modifying the source note.",
+  "author": "Nina Smirnova",
+  "isDesktopOnly": false
+}
