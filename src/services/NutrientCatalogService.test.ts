@@ -34,7 +34,7 @@ class MockMetadataCache extends MetadataCache {
 }
 
 describe("NutrientCatalogService", () => {
-  it("resolves a nutrient note by normalized basename and reports empty sodium as an error", async () => {
+  it("resolves a nutrient note by normalized basename and defaults empty sodium to zero", async () => {
     const app = new App();
     const dailyFile = new TFile("Diary/2026.07.18.md");
     const targetFile = new TFile("_nutrients/Závin Makový (Kukkonia).md");
@@ -42,8 +42,6 @@ describe("NutrientCatalogService", () => {
       [targetFile.path]: `---
 name: Makový závin
 calories: 475
-protein: 12
-fats: 20
 saturated_fats: 0
 carbs: 61
 sugar: 24
@@ -62,16 +60,13 @@ serving_size: 100
       "_nutrients",
     );
 
-    expect(result).toEqual({
-      nutrient: null,
-      error: {
-        code: "invalid_nutrient_field",
-        productName: "Makový závin",
-        reason: "Missing sodium in _nutrients/Závin Makový (Kukkonia).md.",
-        sourcePath: "Diary/2026.07.18.md",
-        lineNumber: 44,
-        rawEntry: "Makový závin",
-      },
+    expect(result.error).toBeNull();
+    expect(result.nutrient).toMatchObject({
+      name: "Makový závin",
+      prot: 0,
+      fat: 0,
+      fiber: 0,
+      sodium: 0,
     });
   });
 

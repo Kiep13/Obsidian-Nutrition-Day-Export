@@ -206,11 +206,16 @@ function parseNutrientFrontmatter(
     REQUIRED_NUTRIENT_FIELDS,
   )) {
     const rawValue = frontmatterValues[frontmatterKey];
-    if (!rawValue?.trim()) {
+    if (!rawValue?.trim() && metricKey === "kcal") {
       return {
         nutrient: null,
         error: `Missing ${frontmatterKey} in ${file.path}.`,
       };
+    }
+
+    if (!rawValue?.trim()) {
+      metricValues[metricKey] = 0;
+      continue;
     }
 
     const parsedValue = parseStrictNumber(rawValue);
