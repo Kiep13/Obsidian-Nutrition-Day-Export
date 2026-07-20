@@ -7,6 +7,11 @@ import type {
 } from "../types";
 import { PLUGIN_NAME } from "../constants";
 import type { ExportService } from "../services/ExportService";
+import {
+  fromDateInputValue,
+  getTodayDailyNoteName,
+  toDateInputValue,
+} from "../utils/dateUtils";
 
 export class NutritionExportModal extends Modal {
   private readonly exportService: ExportService;
@@ -52,21 +57,33 @@ export class NutritionExportModal extends Modal {
     const dateFieldEl = controlsEl.createDiv({
       cls: "nutrition-day-export-field",
     });
-    dateFieldEl.createEl("label", { text: "Date override (YYYY.MM.DD)" });
+    dateFieldEl.createEl("label", { text: "Date override" });
     this.dateInputEl = dateFieldEl.createEl("input", {
       attr: {
-        type: "text",
-        placeholder: "YYYY.MM.DD",
+        type: "date",
+        "aria-label": "Date override",
       },
     });
-    this.dateInputEl.value = this.dateText;
+    this.dateInputEl.value = toDateInputValue(this.dateText);
     this.dateInputEl.addEventListener("input", (inputEvent) => {
-      this.dateText = (inputEvent.target as HTMLInputElement).value;
+      this.dateText = fromDateInputValue(
+        (inputEvent.target as HTMLInputElement).value,
+      );
     });
     this.dateInputEl.addEventListener("keydown", (keyboardEvent) => {
       if (keyboardEvent.key === "Enter") {
         void this.refresh();
       }
+    });
+
+    const todayButtonEl = dateFieldEl.createEl("button", {
+      text: "Today",
+      attr: { type: "button" },
+    });
+    todayButtonEl.addEventListener("click", () => {
+      this.dateText = getTodayDailyNoteName();
+      this.dateInputEl.value = toDateInputValue(this.dateText);
+      void this.refresh();
     });
 
     const buttonRowEl = controlsEl.createDiv({

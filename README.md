@@ -9,7 +9,7 @@ The plugin is built for a daily-note food logging workflow where nutrition data 
 ## Features
 
 - Uses the active daily note by default
-- Lets you export another day by entering `YYYY.MM.DD`
+- Lets you export another day using a native date picker or the `Today` button
 - Reads only the configured nutrition section
 - Ignores fenced code blocks
 - Supports multiple `#food` entries on one line
