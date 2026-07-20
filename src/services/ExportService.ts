@@ -81,7 +81,7 @@ export class ExportService {
       exportedLines.push(exportLine.line as ExportLine);
     }
 
-    const previewText = exportedLines.map((line) => line.text).join("\n");
+    const previewText = exportedLines.map((line) => line.text).join("\n\n");
     return {
       note: dailyNoteLookup.file,
       selectedDate: dailyNoteLookup.selectedDate,
@@ -187,7 +187,7 @@ export class ExportService {
       amount,
       metrics,
       source,
-      text: `${productName} ${formattedAmount} ${metricSegments.join(" ")}`,
+      text: `${productName} ${formattedAmount}\n${metricSegments.join(" ")}`,
     };
   }
 }

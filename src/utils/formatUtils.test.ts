@@ -30,7 +30,7 @@ describe("formatFoodLine", () => {
       },
     );
     expect(line).toBe(
-      "Творог 10.00г 6.60kcal 1.20prot 0.05fat 0.02satfat 0.40carbs 0.40sugar 0.00fiber 0.01sodium",
+      "Творог 10.00г\n6.60kcal 1.20prot 0.05fat 0.02satfat 0.40carbs 0.40sugar 0.00fiber 0.01sodium",
     );
   });
 });

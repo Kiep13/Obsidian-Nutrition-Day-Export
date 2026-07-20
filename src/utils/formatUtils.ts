@@ -23,5 +23,5 @@ export function formatFoodLine(
     `${formatNumber(nutrition.fiber, decimals)}fiber`,
     `${formatNumber(nutrition.sodium, decimals)}sodium`,
   ];
-  return `${entry.name} ${formatNumber(entry.amount, decimals)}${unit} ${values.join(" ")}`;
+  return `${entry.name} ${formatNumber(entry.amount, decimals)}${unit}\n${values.join(" ")}`;
 }
