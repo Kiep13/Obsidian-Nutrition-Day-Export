@@ -63,6 +63,62 @@ describe("FoodParserService", () => {
     });
   });
 
+  it("supports the whole document and Nutrition subsections as sources", () => {
+    const markdown = `# Title
+#food [[Document food]] 10g
+
+## Nutrition
+### Breakfast
+#food [[Breakfast food]] 20g
+#### Details
+#food [[Breakfast detail]] 30g
+### Dinner
+#food [[Dinner food]] 40g
+
+## Sport
+#food [[Sport food]] 50g`;
+
+    const options = parserService.getFoodSourceOptions(
+      markdown,
+      "## Nutrition",
+    );
+    expect(options.map((option) => option.id)).toEqual([
+      "document",
+      "nutrition",
+      "heading-5",
+      "heading-7",
+      "heading-9",
+    ]);
+
+    const wholeDocumentResult = parserService.parseFoodEntries(
+      dailyFile,
+      markdown,
+      { kind: "document" },
+      "## Nutrition",
+    );
+    expect(wholeDocumentResult.results).toHaveLength(5);
+
+    const breakfastResult = parserService.parseFoodEntries(
+      dailyFile,
+      markdown,
+      {
+        kind: "heading",
+        headingText: "### Breakfast",
+        lineNumber: 5,
+      },
+      "## Nutrition",
+    );
+    expect(breakfastResult.results).toHaveLength(2);
+    expect(breakfastResult.results[0]).toMatchObject({
+      ok: true,
+      entry: { displayName: "Breakfast food" },
+    });
+    expect(breakfastResult.results[1]).toMatchObject({
+      ok: true,
+      entry: { displayName: "Breakfast detail" },
+    });
+  });
+
   it("keeps multiple food entries from one line in order", () => {
     const markdown = `## Nutrition
 7:45 #food [[First]] 10g and #food [[Second]] 1pc`;

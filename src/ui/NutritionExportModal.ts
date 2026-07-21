@@ -2,6 +2,8 @@ import { Modal, Notice, setIcon } from "obsidian";
 import type { App } from "obsidian";
 import type {
   ExportReport,
+  FoodSourceOption,
+  FoodSourceSelection,
   NutritionDayExportSettings,
   StructuredError,
 } from "../types";
@@ -17,9 +19,11 @@ export class NutritionExportModal extends Modal {
   private readonly exportService: ExportService;
   private readonly getSettings: () => NutritionDayExportSettings;
   private dateText: string;
+  private sourceSelection: FoodSourceSelection = { kind: "nutrition" };
   private report: ExportReport | null = null;
   private topError: StructuredError | null = null;
   private dateInputEl!: HTMLInputElement;
+  private sourceSelectEl!: HTMLSelectElement;
   private statsEl!: HTMLDivElement;
   private statusEl!: HTMLDivElement;
   private previewEl!: HTMLTextAreaElement;
@@ -76,6 +80,23 @@ export class NutritionExportModal extends Modal {
       }
     });
 
+    const sourceFieldEl = controlsEl.createDiv({
+      cls: "nutrition-day-export-field",
+    });
+    sourceFieldEl.createEl("label", { text: "Food source" });
+    this.sourceSelectEl = sourceFieldEl.createEl("select", {
+      attr: { "aria-label": "Food source" },
+    });
+    this.sourceSelectEl.addEventListener("change", () => {
+      const selectedOption = this.sourceOptions.find(
+        (option) => option.id === this.sourceSelectEl.value,
+      );
+      if (selectedOption) {
+        this.sourceSelection = selectedOption.selection;
+        void this.refresh();
+      }
+    });
+
     const todayButtonEl = dateFieldEl.createEl("button", {
       text: "Today",
       attr: { type: "button" },
@@ -125,9 +146,23 @@ export class NutritionExportModal extends Modal {
     this.report = null;
     this.render();
 
+    const settings = this.getSettings();
+    const sourceOptionsResult = await this.exportService.getFoodSourceOptions(
+      this.dateText,
+      settings,
+    );
+    if ("options" in sourceOptionsResult) {
+      this.setSourceOptions(sourceOptionsResult.options);
+    } else {
+      this.topError = sourceOptionsResult;
+      this.render();
+      return;
+    }
+
     const result = await this.exportService.buildReport(
       this.dateText,
-      this.getSettings(),
+      settings,
+      this.sourceSelection,
     );
     if ("note" in result) {
       this.report = result;
@@ -136,6 +171,45 @@ export class NutritionExportModal extends Modal {
     }
 
     this.render();
+  }
+
+  private sourceOptions: FoodSourceOption[] = [];
+
+  private setSourceOptions(options: FoodSourceOption[]): void {
+    this.sourceOptions = options;
+    const currentOption = options.find(
+      (option) =>
+        this.getSelectionId(option.selection) ===
+        this.getSelectionId(this.sourceSelection),
+    );
+    if (currentOption) {
+      this.sourceSelection = currentOption.selection;
+    } else {
+      this.sourceSelection = { kind: "nutrition" };
+    }
+
+    while (this.sourceSelectEl.firstChild) {
+      this.sourceSelectEl.removeChild(this.sourceSelectEl.firstChild);
+    }
+    for (const option of options) {
+      const optionEl = document.createElement("option");
+      optionEl.value = option.id;
+      optionEl.textContent = option.label;
+      optionEl.selected =
+        this.getSelectionId(option.selection) ===
+        this.getSelectionId(this.sourceSelection);
+      this.sourceSelectEl.appendChild(optionEl);
+    }
+  }
+
+  private getSelectionId(selection: FoodSourceSelection): string {
+    if (selection.kind === "document") {
+      return "document";
+    }
+    if (selection.kind === "nutrition") {
+      return "nutrition";
+    }
+    return `heading-${selection.lineNumber}`;
   }
 
   private render(): void {

@@ -7,6 +7,8 @@ import type {
   ParseResult,
   SourceReference,
   StructuredError,
+  FoodSourceOption,
+  FoodSourceSelection,
 } from "../types";
 import { parseWikilink } from "../utils/markdownUtils";
 
@@ -24,21 +26,110 @@ type MetricsParseResult =
   | { ok: false; error: StructuredError };
 
 export class FoodParserService {
+  public getFoodSourceOptions(
+    markdown: string,
+    nutritionHeading: string,
+  ): FoodSourceOption[] {
+    const options: FoodSourceOption[] = [
+      {
+        id: "document",
+        label: "Whole document",
+        selection: { kind: "document" },
+      },
+      {
+        id: "nutrition",
+        label: `Nutrition section (${nutritionHeading.trim()})`,
+        selection: { kind: "nutrition" },
+      },
+    ];
+    const nutritionSection = this.findHeadingRange(markdown, nutritionHeading);
+
+    if (!nutritionSection) {
+      return options;
+    }
+
+    const lines = markdown.split(/\r?\n/);
+    let insideFence = false;
+    for (
+      let lineIndex = nutritionSection.startLine + 1;
+      lineIndex < nutritionSection.endLine;
+      lineIndex += 1
+    ) {
+      const sourceLine = lines[lineIndex] ?? "";
+      const trimmedLine = sourceLine.trim();
+      if (trimmedLine.startsWith("```") || trimmedLine.startsWith("~~~")) {
+        insideFence = !insideFence;
+        continue;
+      }
+      if (insideFence) {
+        continue;
+      }
+
+      const headingMatch = trimmedLine.match(HEADING_PATTERN);
+      if (!headingMatch?.[1] || !headingMatch[2]) {
+        continue;
+      }
+      const headingLevel = headingMatch[1].length;
+      if (headingLevel <= nutritionSection.level) {
+        break;
+      }
+
+      const headingText = `${headingMatch[1]} ${headingMatch[2].trim()}`;
+      options.push({
+        id: `heading-${lineIndex + 1}`,
+        label: `Subsection: ${headingText}`,
+        selection: {
+          kind: "heading",
+          headingText,
+          lineNumber: lineIndex + 1,
+        },
+      });
+    }
+
+    return options;
+  }
+
   public parseNutritionSection(
     dailyFile: TFile,
     markdown: string,
     headingText: string,
   ): { results: ParseResult[]; sectionFound: boolean } {
-    const lines = markdown.split(/\r?\n/);
-    const normalizedHeading = headingText.trim();
-    const headingMatch = normalizedHeading.match(HEADING_PATTERN);
-    const targetHeadingText =
-      headingMatch?.[2]?.trim() ??
-      normalizedHeading.replace(/^#+\s*/, "").trim();
-    const targetHeadingLevel = headingMatch?.[1]?.length ?? 2;
+    return this.parseEntriesInRange(dailyFile, markdown, headingText);
+  }
 
-    let insideTargetSection = false;
-    let sectionFound = false;
+  public parseFoodEntries(
+    dailyFile: TFile,
+    markdown: string,
+    selection: FoodSourceSelection,
+    nutritionHeading: string,
+  ): { results: ParseResult[]; sectionFound: boolean } {
+    const targetHeading =
+      selection.kind === "document"
+        ? null
+        : selection.kind === "nutrition"
+          ? nutritionHeading
+          : selection.headingText;
+    const targetLineNumber =
+      selection.kind === "heading" ? selection.lineNumber : null;
+    return this.parseEntriesInRange(
+      dailyFile,
+      markdown,
+      targetHeading,
+      targetLineNumber,
+    );
+  }
+
+  private parseEntriesInRange(
+    dailyFile: TFile,
+    markdown: string,
+    headingText: string | null,
+    headingLineNumber: number | null = null,
+  ): { results: ParseResult[]; sectionFound: boolean } {
+    const lines = markdown.split(/\r?\n/);
+    const targetHeading = headingText ? this.parseHeading(headingText) : null;
+
+    let insideTargetSection = targetHeading === null;
+    let sectionFound = targetHeading === null;
     let insideFence = false;
     const results: ParseResult[] = [];
 
@@ -46,9 +137,7 @@ export class FoodParserService {
       const trimmedLine = sourceLine.trim();
 
       if (trimmedLine.startsWith("```") || trimmedLine.startsWith("~~~")) {
-        if (insideTargetSection) {
-          insideFence = !insideFence;
-        }
+        insideFence = !insideFence;
         continue;
       }
 
@@ -63,10 +152,11 @@ export class FoodParserService {
         const currentHeadingLevel = currentHeadingHashes.length;
         const currentHeadingText = currentHeadingLabel.trim();
 
-        if (!insideTargetSection) {
+        if (!insideTargetSection && targetHeading) {
           if (
-            currentHeadingLevel === targetHeadingLevel &&
-            currentHeadingText === targetHeadingText
+            currentHeadingLevel === targetHeading.level &&
+            currentHeadingText === targetHeading.text &&
+            (!headingLineNumber || lineIndex + 1 === headingLineNumber)
           ) {
             insideTargetSection = true;
             sectionFound = true;
@@ -74,7 +164,7 @@ export class FoodParserService {
           continue;
         }
 
-        if (currentHeadingLevel <= targetHeadingLevel) {
+        if (targetHeading && currentHeadingLevel <= targetHeading.level) {
           break;
         }
       }
@@ -106,6 +196,79 @@ export class FoodParserService {
     }
 
     return { results, sectionFound };
+  }
+
+  private findHeadingRange(
+    markdown: string,
+    headingText: string,
+  ): { startLine: number; endLine: number; level: number } | null {
+    const targetHeading = this.parseHeading(headingText);
+    if (!targetHeading) {
+      return null;
+    }
+
+    const lines = markdown.split(/\r?\n/);
+    let insideFence = false;
+    for (const [lineIndex, sourceLine] of lines.entries()) {
+      const trimmedLine = sourceLine.trim();
+      if (trimmedLine.startsWith("```") || trimmedLine.startsWith("~~~")) {
+        insideFence = !insideFence;
+        continue;
+      }
+      if (insideFence) {
+        continue;
+      }
+
+      const headingMatch = trimmedLine.match(HEADING_PATTERN);
+      if (!headingMatch?.[1] || !headingMatch[2]) {
+        continue;
+      }
+      if (
+        headingMatch[1].length === targetHeading.level &&
+        headingMatch[2].trim() === targetHeading.text
+      ) {
+        let endLine = lines.length;
+        let nestedInsideFence = false;
+        for (
+          let nextIndex = lineIndex + 1;
+          nextIndex < lines.length;
+          nextIndex += 1
+        ) {
+          const nextLine = lines[nextIndex]?.trim() ?? "";
+          if (nextLine.startsWith("```") || nextLine.startsWith("~~~")) {
+            nestedInsideFence = !nestedInsideFence;
+            continue;
+          }
+          if (nestedInsideFence) {
+            continue;
+          }
+          const nextHeadingMatch = nextLine.match(HEADING_PATTERN);
+          if (
+            nextHeadingMatch?.[1] &&
+            nextHeadingMatch[1].length <= targetHeading.level
+          ) {
+            endLine = nextIndex;
+            break;
+          }
+        }
+        return { startLine: lineIndex, endLine, level: targetHeading.level };
+      }
+    }
+
+    return null;
+  }
+
+  private parseHeading(
+    headingText: string,
+  ): { level: number; text: string } | null {
+    const normalizedHeading = headingText.trim();
+    const headingMatch = normalizedHeading.match(HEADING_PATTERN);
+    if (headingMatch?.[1] && headingMatch[2]) {
+      return { level: headingMatch[1].length, text: headingMatch[2].trim() };
+    }
+
+    const plainText = normalizedHeading.replace(/^#+\s*/, "").trim();
+    return plainText ? { level: 2, text: plainText } : null;
   }
 
   private parseRawEntry(source: SourceReference): ParseResult {

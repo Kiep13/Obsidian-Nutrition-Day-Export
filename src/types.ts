@@ -6,6 +6,17 @@ export type NutritionMetricKey =
 export type UnitKey = "g" | "ml" | "pc";
 export type OutputUnitFormat = "metric" | "source";
 
+export type FoodSourceSelection =
+  | { kind: "document" }
+  | { kind: "nutrition" }
+  | { kind: "heading"; headingText: string; lineNumber: number };
+
+export interface FoodSourceOption {
+  id: string;
+  label: string;
+  selection: FoodSourceSelection;
+}
+
 export interface NutritionMetrics {
   kcal: number;
   prot: number;

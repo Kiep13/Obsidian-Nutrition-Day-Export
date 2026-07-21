@@ -10,7 +10,7 @@ The plugin is built for a daily-note food logging workflow where nutrition data 
 
 - Uses the active daily note by default
 - Lets you export another day using a native date picker or the `Today` button
-- Reads only the configured nutrition section
+- Lets you export the whole document, the configured Nutrition section, or any subsection under Nutrition
 - Ignores fenced code blocks
 - Supports multiple `#food` entries on one line
 - Supports linked foods and inline custom foods
@@ -34,6 +34,7 @@ Available settings:
 
 - `Nutrients folder` - vault-relative folder containing nutrient notes. Default: `_nutrients`
 - `Nutrition heading` - heading used as the section boundary. Default: `## Nutrition`
+- `Food source` (in the export modal) - whole document, Nutrition section, or a detected subsection under Nutrition
 - `Output units` - `г/мл/шт` or `g/ml/pc`
 - `Decimal places` - formatting precision for exported metrics. Default: `2`
 

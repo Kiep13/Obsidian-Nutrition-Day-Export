@@ -7,6 +7,8 @@ import {
 import type {
   ExportLine,
   ExportReport,
+  FoodSourceOption,
+  FoodSourceSelection,
   NutritionDayExportSettings,
   ParseResult,
   StructuredError,
@@ -36,9 +38,32 @@ export class ExportService {
     return this.dailyNoteService.getInitialDate();
   }
 
+  public async getFoodSourceOptions(
+    dateText: string,
+    settings: NutritionDayExportSettings,
+  ): Promise<
+    | { options: FoodSourceOption[]; selectedDate: string | null }
+    | StructuredError
+  > {
+    const dailyNoteLookup = this.dailyNoteService.resolveDailyNote(dateText);
+    if (dailyNoteLookup.error || !dailyNoteLookup.file) {
+      return dailyNoteLookup.error as StructuredError;
+    }
+
+    const markdown = await this.app.vault.cachedRead(dailyNoteLookup.file);
+    return {
+      options: this.foodParserService.getFoodSourceOptions(
+        markdown,
+        settings.nutritionHeading || DEFAULT_NUTRITION_HEADING,
+      ),
+      selectedDate: dailyNoteLookup.selectedDate,
+    };
+  }
+
   public async buildReport(
     dateText: string,
     settings: NutritionDayExportSettings,
+    sourceSelection: FoodSourceSelection = { kind: "nutrition" },
   ): Promise<ExportReport | StructuredError> {
     const dailyNoteLookup = this.dailyNoteService.resolveDailyNote(dateText);
     if (dailyNoteLookup.error || !dailyNoteLookup.file) {
@@ -46,20 +71,29 @@ export class ExportService {
     }
 
     const markdown = await this.app.vault.cachedRead(dailyNoteLookup.file);
-    const parseResult = this.foodParserService.parseNutritionSection(
+    const nutritionHeading =
+      settings.nutritionHeading || DEFAULT_NUTRITION_HEADING;
+    const parseResult = this.foodParserService.parseFoodEntries(
       dailyNoteLookup.file,
       markdown,
-      settings.nutritionHeading || DEFAULT_NUTRITION_HEADING,
+      sourceSelection,
+      nutritionHeading,
     );
 
     if (!parseResult.sectionFound) {
+      const sourceHeading =
+        sourceSelection.kind === "nutrition"
+          ? nutritionHeading
+          : sourceSelection.kind === "heading"
+            ? sourceSelection.headingText
+            : "the selected source";
       return {
         code: "nutrition_section_not_found",
-        productName: settings.nutritionHeading || DEFAULT_NUTRITION_HEADING,
-        reason: `Section "${settings.nutritionHeading}" was not found.`,
+        productName: sourceHeading,
+        reason: `Section "${sourceHeading}" was not found.`,
         sourcePath: dailyNoteLookup.file.path,
         lineNumber: 0,
-        rawEntry: settings.nutritionHeading,
+        rawEntry: sourceHeading,
       };
     }
 
@@ -82,6 +116,10 @@ export class ExportService {
     }
 
     const previewText = exportedLines.map((line) => line.text).join("\n\n");
+    const infoMessage =
+      sourceSelection.kind === "nutrition"
+        ? "No #food entries were found in the configured Nutrition section."
+        : "No #food entries were found in the selected source.";
     return {
       note: dailyNoteLookup.file,
       selectedDate: dailyNoteLookup.selectedDate,
@@ -92,10 +130,7 @@ export class ExportService {
       errors,
       clipboardText: previewText,
       previewText,
-      infoMessage:
-        parseResult.results.length === 0
-          ? "No #food entries were found in the configured Nutrition section."
-          : null,
+      infoMessage: parseResult.results.length === 0 ? infoMessage : null,
     };
   }
 
