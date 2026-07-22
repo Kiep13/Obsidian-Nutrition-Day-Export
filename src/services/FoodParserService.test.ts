@@ -119,6 +119,43 @@ describe("FoodParserService", () => {
     });
   });
 
+  it("supports mixed heading levels used by the Diary vault", () => {
+    const markdown = `## Nutrition
+# Breakfast
+#food [[Breakfast food]] 20g
+## Lunch
+#food [[Lunch food]] 30g
+# Dinner
+#food [[Dinner food]] 40g
+# Notes
+Notes with no food entries.`;
+
+    const options = parserService.getFoodSourceOptions(
+      markdown,
+      "## Nutrition",
+    );
+    expect(options.map((option) => option.label)).toEqual([
+      "Whole document",
+      "Nutrition section (## Nutrition)",
+      "Subsection: # Breakfast",
+      "Subsection: ## Lunch",
+      "Subsection: # Dinner",
+    ]);
+
+    const result = parserService.parseFoodEntries(
+      dailyFile,
+      markdown,
+      { kind: "nutrition" },
+      "## Nutrition",
+    );
+    expect(result.results).toHaveLength(3);
+    expect(
+      result.results.map((entry) =>
+        entry.ok ? entry.entry.displayName : entry.error.productName,
+      ),
+    ).toEqual(["Breakfast food", "Lunch food", "Dinner food"]);
+  });
+
   it("keeps multiple food entries from one line in order", () => {
     const markdown = `## Nutrition
 7:45 #food [[First]] 10g and #food [[Second]] 1pc`;

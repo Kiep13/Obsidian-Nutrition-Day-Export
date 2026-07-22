@@ -69,11 +69,6 @@ export class FoodParserService {
       if (!headingMatch?.[1] || !headingMatch[2]) {
         continue;
       }
-      const headingLevel = headingMatch[1].length;
-      if (headingLevel <= nutritionSection.level) {
-        break;
-      }
-
       const headingText = `${headingMatch[1]} ${headingMatch[2].trim()}`;
       options.push({
         id: `heading-${lineIndex + 1}`,
@@ -116,6 +111,7 @@ export class FoodParserService {
       markdown,
       targetHeading,
       targetLineNumber,
+      selection.kind === "nutrition",
     );
   }
 
@@ -124,9 +120,14 @@ export class FoodParserService {
     markdown: string,
     headingText: string | null,
     headingLineNumber: number | null = null,
+    allowMixedHeadingLevels = false,
   ): { results: ParseResult[]; sectionFound: boolean } {
     const lines = markdown.split(/\r?\n/);
     const targetHeading = headingText ? this.parseHeading(headingText) : null;
+    const targetRange =
+      targetHeading && allowMixedHeadingLevels
+        ? this.findHeadingRange(markdown, headingText as string)
+        : null;
 
     let insideTargetSection = targetHeading === null;
     let sectionFound = targetHeading === null;
@@ -134,6 +135,9 @@ export class FoodParserService {
     const results: ParseResult[] = [];
 
     for (const [lineIndex, sourceLine] of lines.entries()) {
+      if (targetRange && lineIndex >= targetRange.endLine) {
+        break;
+      }
       const trimmedLine = sourceLine.trim();
 
       if (trimmedLine.startsWith("```") || trimmedLine.startsWith("~~~")) {
@@ -164,7 +168,11 @@ export class FoodParserService {
           continue;
         }
 
-        if (targetHeading && currentHeadingLevel <= targetHeading.level) {
+        if (
+          targetHeading &&
+          !allowMixedHeadingLevels &&
+          currentHeadingLevel <= targetHeading.level
+        ) {
           break;
         }
       }
@@ -227,35 +235,109 @@ export class FoodParserService {
         headingMatch[1].length === targetHeading.level &&
         headingMatch[2].trim() === targetHeading.text
       ) {
-        let endLine = lines.length;
-        let nestedInsideFence = false;
-        for (
-          let nextIndex = lineIndex + 1;
-          nextIndex < lines.length;
-          nextIndex += 1
-        ) {
-          const nextLine = lines[nextIndex]?.trim() ?? "";
-          if (nextLine.startsWith("```") || nextLine.startsWith("~~~")) {
-            nestedInsideFence = !nestedInsideFence;
-            continue;
-          }
-          if (nestedInsideFence) {
-            continue;
-          }
-          const nextHeadingMatch = nextLine.match(HEADING_PATTERN);
-          if (
-            nextHeadingMatch?.[1] &&
-            nextHeadingMatch[1].length <= targetHeading.level
-          ) {
-            endLine = nextIndex;
-            break;
-          }
-        }
+        const endLine = this.findSectionEndLine(
+          lines,
+          lineIndex,
+          targetHeading.level,
+        );
         return { startLine: lineIndex, endLine, level: targetHeading.level };
       }
     }
 
     return null;
+  }
+
+  private findSectionEndLine(
+    lines: string[],
+    startLine: number,
+    targetLevel: number,
+  ): number {
+    let insideFence = false;
+    let mixedHeadingLevel: number | null = null;
+
+    for (
+      let lineIndex = startLine + 1;
+      lineIndex < lines.length;
+      lineIndex += 1
+    ) {
+      const trimmedLine = lines[lineIndex]?.trim() ?? "";
+      if (trimmedLine.startsWith("```") || trimmedLine.startsWith("~~~")) {
+        insideFence = !insideFence;
+        continue;
+      }
+      if (insideFence) {
+        continue;
+      }
+
+      const headingMatch = trimmedLine.match(HEADING_PATTERN);
+      if (!headingMatch?.[1] || !headingMatch[2]) {
+        continue;
+      }
+
+      const headingLevel = headingMatch[1].length;
+      if (headingLevel > targetLevel) {
+        continue;
+      }
+
+      if (mixedHeadingLevel !== null && headingLevel > mixedHeadingLevel) {
+        continue;
+      }
+
+      if (
+        headingLevel < targetLevel &&
+        this.headingContainsFood(lines, lineIndex, headingLevel)
+      ) {
+        mixedHeadingLevel = headingLevel;
+        continue;
+      }
+
+      if (
+        headingLevel === targetLevel &&
+        mixedHeadingLevel !== null &&
+        this.headingContainsFood(lines, lineIndex, headingLevel)
+      ) {
+        continue;
+      }
+
+      return lineIndex;
+    }
+
+    return lines.length;
+  }
+
+  private headingContainsFood(
+    lines: string[],
+    startLine: number,
+    headingLevel: number,
+  ): boolean {
+    let insideFence = false;
+    for (
+      let lineIndex = startLine + 1;
+      lineIndex < lines.length;
+      lineIndex += 1
+    ) {
+      const sourceLine = lines[lineIndex] ?? "";
+      const trimmedLine = sourceLine.trim();
+      if (trimmedLine.startsWith("```") || trimmedLine.startsWith("~~~")) {
+        insideFence = !insideFence;
+        continue;
+      }
+      if (insideFence) {
+        continue;
+      }
+
+      const headingMatch = trimmedLine.match(HEADING_PATTERN);
+      if (headingMatch?.[1] && headingMatch[1].length <= headingLevel) {
+        return false;
+      }
+      if (FOOD_MARKER_PATTERN.test(sourceLine)) {
+        FOOD_MARKER_PATTERN.lastIndex = 0;
+        return true;
+      }
+      FOOD_MARKER_PATTERN.lastIndex = 0;
+    }
+
+    return false;
   }
 
   private parseHeading(
