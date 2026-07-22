@@ -18,13 +18,14 @@ The plugin is built for a daily-note food logging workflow where nutrition data 
 - Copies only successful product lines to the clipboard
 - Shows structured per-product errors without changing the source note
 
-## Installation
+## Install with BRAT
 
-```bash
-./install.sh /path/to/your/vault
-```
+1. Install and enable [BRAT](https://github.com/TfTHacker/obsidian42-brat).
+2. Run `BRAT: Add a beta plugin for testing`.
+3. Enter `Kiep13/Obsidian-Nutrition-Day-Export`.
 
-Then enable **Nutrition Day Export** in Obsidian community plugins.
+BRAT installs the matching GitHub Release assets `main.js` and `manifest.json`.
+After installation, enable **Nutrition Day Export** in Obsidian community plugins.
 
 ## Configuration
 
@@ -59,6 +60,25 @@ corepack pnpm test
 corepack pnpm lint
 corepack pnpm build
 ```
+
+`pnpm build` produces the distributable `main.js` at the plugin root. If the plugin gains a `src/styles.css` file, the build also copies it to the root as `styles.css`.
+
+## Release
+
+This repository publishes tagged GitHub Releases for BRAT. The release tag and
+the versions in `package.json`, `manifest.json`, and `versions.json` use the
+same semver value.
+
+For a minor release, run:
+
+```bash
+pnpm run release:minor
+```
+
+The command runs the checks, bumps the version, builds `main.js`, pushes the
+commit and tag, and creates a GitHub Release with the BRAT assets. The release
+requires an authenticated GitHub account with push and release permissions for
+`Kiep13/Obsidian-Nutrition-Day-Export`.
 
 ## Testing
 

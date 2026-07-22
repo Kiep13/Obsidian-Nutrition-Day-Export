@@ -1,6 +1,6 @@
 {
   "name": "nutrition-day-export",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Export #food nutrition lines from an Obsidian daily note.",
   "private": true,
   "main": "main.js",
@@ -15,7 +15,13 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src test-setup.ts vitest.config.ts --ext .ts --ignore-pattern 'src/**/*.test.ts'",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "check": "tsc --noEmit && vitest --run && eslint src test-setup.ts vitest.config.ts --ext .ts --ignore-pattern 'src/**/*.test.ts' && node esbuild.config.mjs production",
+    "preversion": "tsc --noEmit && vitest --run && eslint src test-setup.ts vitest.config.ts --ext .ts --ignore-pattern 'src/**/*.test.ts' && node esbuild.config.mjs production",
+    "version": "node version-bump.mjs",
+    "release": "node release.mjs",
+    "release:minor": "corepack pnpm version minor && node release.mjs",
+    "release:patch": "corepack pnpm version patch && node release.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
