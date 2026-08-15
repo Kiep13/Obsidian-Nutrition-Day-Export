@@ -63,6 +63,28 @@ describe("FoodParserService", () => {
     });
   });
 
+  it("keeps the nearest Nutrition subsection on each food entry", () => {
+    const markdown = `## Nutrition
+# Завтрак 8:30
+#food [[Breakfast food]] 20g
+## Обед 14:30
+#food [[Lunch food]] 30g
+#food [[Second lunch food]] 40g`;
+
+    const result = parserService.parseFoodEntries(
+      dailyFile,
+      markdown,
+      { kind: "nutrition" },
+      "## Nutrition",
+    );
+
+    expect(result.results).toMatchObject([
+      { ok: true, entry: { source: { sectionHeading: "Завтрак 8:30" } } },
+      { ok: true, entry: { source: { sectionHeading: "Обед 14:30" } } },
+      { ok: true, entry: { source: { sectionHeading: "Обед 14:30" } } },
+    ]);
+  });
+
   it("supports the whole document and Nutrition subsections as sources", () => {
     const markdown = `# Title
 #food [[Document food]] 10g

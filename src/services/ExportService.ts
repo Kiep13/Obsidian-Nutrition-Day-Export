@@ -115,7 +115,7 @@ export class ExportService {
       exportedLines.push(exportLine.line as ExportLine);
     }
 
-    const previewText = exportedLines.map((line) => line.text).join("\n\n");
+    const previewText = this.formatPreview(exportedLines);
     const infoMessage =
       sourceSelection.kind === "nutrition"
         ? "No #food entries were found in the configured Nutrition section."
@@ -222,7 +222,26 @@ export class ExportService {
       amount,
       metrics,
       source,
+      ...(source.sectionHeading
+        ? { sectionHeading: source.sectionHeading }
+        : {}),
       text: `${productName} ${formattedAmount}\n${metricSegments.join(" ")}`,
     };
+  }
+
+  private formatPreview(exportedLines: ExportLine[]): string {
+    const reportSegments: string[] = [];
+    let previousHeading: string | undefined;
+
+    for (const exportedLine of exportedLines) {
+      const currentHeading = exportedLine.sectionHeading;
+      if (currentHeading && currentHeading !== previousHeading) {
+        reportSegments.push(`**${currentHeading}**`);
+      }
+      reportSegments.push(exportedLine.text);
+      previousHeading = currentHeading;
+    }
+
+    return reportSegments.join("\n\n");
   }
 }

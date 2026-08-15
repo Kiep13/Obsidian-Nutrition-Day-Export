@@ -42,6 +42,7 @@ export interface SourceReference {
   lineNumber: number;
   rawLine: string;
   rawEntry: string;
+  sectionHeading?: string;
 }
 
 export interface AmountValue {
@@ -120,6 +121,7 @@ export interface ExportLine {
   amount: AmountValue;
   metrics: NutritionMetrics;
   source: SourceReference;
+  sectionHeading?: string;
   text: string;
 }
 

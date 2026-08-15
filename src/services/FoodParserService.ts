@@ -89,7 +89,13 @@ export class FoodParserService {
     markdown: string,
     headingText: string,
   ): { results: ParseResult[]; sectionFound: boolean } {
-    return this.parseEntriesInRange(dailyFile, markdown, headingText);
+    return this.parseEntriesInRange(
+      dailyFile,
+      markdown,
+      headingText,
+      null,
+      true,
+    );
   }
 
   public parseFoodEntries(
@@ -132,6 +138,7 @@ export class FoodParserService {
     let insideTargetSection = targetHeading === null;
     let sectionFound = targetHeading === null;
     let insideFence = false;
+    let currentSectionHeading: string | null = null;
     const results: ParseResult[] = [];
 
     for (const [lineIndex, sourceLine] of lines.entries()) {
@@ -164,6 +171,9 @@ export class FoodParserService {
           ) {
             insideTargetSection = true;
             sectionFound = true;
+            currentSectionHeading = allowMixedHeadingLevels
+              ? null
+              : currentHeadingText;
           }
           continue;
         }
@@ -175,6 +185,8 @@ export class FoodParserService {
         ) {
           break;
         }
+
+        currentSectionHeading = currentHeadingText;
       }
 
       if (!insideTargetSection || insideFence) {
@@ -198,6 +210,9 @@ export class FoodParserService {
           lineNumber: lineIndex + 1,
           rawLine: sourceLine,
           rawEntry,
+          ...(currentSectionHeading
+            ? { sectionHeading: currentSectionHeading }
+            : {}),
         };
         results.push(this.parseRawEntry(source));
       }

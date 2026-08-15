@@ -11,6 +11,7 @@ The plugin is built for a daily-note food logging workflow where nutrition data 
 - Uses the active daily note by default
 - Lets you export another day using a native date picker or the `Today` button
 - Lets you export the whole document, the configured Nutrition section, or any subsection under Nutrition
+- Preserves Nutrition subsection headings in the report as bold Markdown headings
 - Ignores fenced code blocks
 - Supports multiple `#food` entries on one line
 - Supports linked foods and inline custom foods
